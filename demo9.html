@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0,"/>
+    <title>动态的编写弹出框和数据的传递</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        li {
+            list-style: none;
+        }
+
+        .lf {
+            float: left;
+        }
+
+        .rt {
+            float: right;
+        }
+        #app{height:1000px;}
+        #header {
+            width: 100%;
+            height: 40px;
+            background: #666;
+            color: #fff;
+            text-align: center;
+            line-height: 40px;
+            position: relative;
+            top:0;
+            left:0;
+            z-index:10;
+        }
+
+        #header button {
+            height: 100%;
+            padding: 0 5px;
+        }
+        #list{position:relative;top:40px;overflow:hidden}
+        #list .list-user p{background: #ccc;padding-left:10px;}
+        #list .list-user ul>li{height:50px;line-height:50px;border-bottom:1px solid #ccc;
+            padding-left:10px;}
+        #list .list-index{position: fixed;right:10px;top:50%;font-size:20px;}
+        #list .list-index>li{
+            margin:5px 0;
+        }
+        #alert{width:100%;height:100%;background: rgba(0,0,0,.5);position:fixed;left:0;top:0;
+            z-index:20;display:flex;}
+        #alert>.alert-content{width:200px;height:150px;background: #fff;
+            border-radius: 5px;margin: auto;position:relative;}
+        #alert .alert-title{padding:8px;border-bottom:1px solid #ccc;  }
+        #alert .alert-body{height:50px;line-height:50px;text-align: center;}
+        #alert  .alert-btn{position:absolute;right:0;bottom:0;}
+        #alert .alert-btn>button{margin:10px;padding:5px;}
+    </style>
+    <script src="js/vue.js"></script>
+</head>
+<body>
+<div id="app">
+    <!-- <div id="header">
+         <button class="lf">返回</button>
+         通讯录
+         <button class="rt">主页</button>
+     </div>-->
+    <my-header custom-title="通讯录" custom-fixed>
+        <button @touchstart="backBtn" class="lf" slot="left">返回</button>
+        <button @touchstart="homeBtn" class="rt" slot="right">主页</button>
+    </my-header>
+    <my-list :user-data="userData"></my-list>
+    <!--弹窗-->
+   <!-- <my-alert custom-title="呼叫">
+        <div class="alert-btn">
+            <button @touchstart="confirmBtn">确认</button>
+            <button @touchstart="cancelBtn">取消</button>
+        </div>
+    </my-alert>-->
+
+</div>
+<script>
+    /*添加空数据，非父子组件的通信*/
+    var busVM=new Vue();
+    /*测试数据*/
+    var userData=[
+        {"index":"A","users":[
+            {"name":"a1","tel":"13260618835"},
+            {"name":"a2","tel":"15889550235"},
+            {"name":"a3","tel":"13260618836"}
+        ]},
+        {"index":"B","users":[
+            {"name":"b1","tel":"13260618835"},
+            {"name":"b2","tel":"15889550235"},
+            {"name":"b3","tel":"13260618836"}
+        ]},
+        {"index":"C","users":[
+            {"name":"c1","tel":"13260618835"},
+            {"name":"c2","tel":"15889550235"},
+            {"name":"c3","tel":"13260618836"}
+        ]},
+        {"index":"D","users":[
+            {"name":"d1","tel":"13260618835"},
+            {"name":"d2","tel":"15889550235"},
+            {"name":"d3","tel":"13260618836"}
+        ]},
+        {"index":"E","users":[
+            {"name":"e1","tel":"13260618835"},
+            {"name":"e2","tel":"15889550235"},
+            {"name":"e3","tel":"13260618836"}
+        ]},
+        {"index":"F","users":[
+            {"name":"f1","tel":"13260618835"},
+            {"name":"f2","tel":"15889550235"},
+            {"name":"f3","tel":"13260618836"}
+        ]}
+
+    ]
+    /*定义全局组件 之头部组件*/
+    Vue.component("my-header", {
+        template: `<div id="header" :style="{'position':customFixed ? 'fixed': 'static'}">
+                       <slot name="left"></slot>
+                           {{customTitle}}
+                      <slot name="right"></slot>
+                    </div>`,
+        props: {
+            customTitle: {
+                type: String,
+                default: "标题"
+            },
+            "custom-fixed":{
+                type:Boolean,
+                default:false
+            }
+        }
+    })
+    /*列表组件*/
+    Vue.component("my-list", {
+        template: `  <div id="list">
+        <ul class="list-user" ref="listUser" @touchmove="bMove=true">
+            <li v-for="item in userData">
+                <p>{{item.index}}</p>
+                <ul>
+                    <li @touchend="showTel(user.tel)"  v-for="user in item.users">{{user.name}}</li>
+                </ul>
+            </li>
+        </ul>
+        <ul class="list-index" ref="listIndex">
+            <li v-for="item in userIndex" @touchstart="setScroll">{{item}}</li>
+
+        </ul>
+    </div>`,
+        props: {
+            "user-data":{
+                type:Array,
+                default:function(){
+                    return [];
+                }
+            }
+        },
+        data:function(){
+            return{
+                bMove:false
+            }
+        },
+        computed:{
+            userIndex:function(){
+                return this.filterIndex(this.userData);
+            }
+        },
+        methods:{
+            filterIndex:function(data){
+                var result=[];
+                for(var i= 0;i<data.length;i++){
+                    if(data[i].index){
+                        result.push(data[i].index);
+                    }
+                }
+                return result;
+            },
+            setListIndexPos:function(){
+                var H=this.$refs.listIndex.offsetHeight;
+                this.$refs.listIndex.style.marginTop=-H/2+"px"
+            },
+            setScroll:function(ev){
+                /*获取当前li*/
+                /* ev.target.innerHTML;*/
+                var ap=this.$refs.listUser.getElementsByTagName("p");
+                for(var i=0;i<ap.length;i++){
+                    if(ap[i].innerHTML==ev.target.innerHTML){
+                        console.log(ap[i].innerHTML);
+                        document.body.scrollTop=ap[i].offsetTop;
+                        console.log(document.body.scrollTop);
+                    }
+                }
+            },
+            showTel:function(tel){
+                if(!this.bMove){
+                    myAlert({
+                        title:"呼叫",
+                        body:tel,
+                        confirm:function(){
+                            alert(1);
+                        },
+                        cancel:function(){
+                            document.body.removeChild(document.getElementById("alert"));
+                        }
+                    })
+                }else{
+                    this.bMove=false;
+                }
+
+            }
+        },
+        mounted:function(){
+            this.setListIndexPos();
+        }
+    });
+    /*弹窗*/
+  /*  Vue.component("my-alert", {
+        template: ` <div id="alert" ref="alert">
+                        <div class="alert-content">
+                            <div class="alert-title">{{customTitle}}</div>
+                            <div class="alert-body">{{customBody}}</div>
+                           <slot></slot>
+                        </div>
+                    </div>`,
+        props: {
+            customTitle: {
+                type: String,
+                default: "弹窗"
+            }
+        },
+        data:function(){
+            return{
+                "customBody":""
+            }
+        },
+        mounted:function(){
+            busVM.$on("changeEvents",function(tel){
+                /!*console.log(tel);*!/
+                this.customBody=tel;
+                this.$refs.alert.style.display="flex";
+            }.bind(this))
+        }
+
+    })
+*/
+    /*动态创建弹窗*/
+    var myAlert=(function(){
+        var defaults={
+         title:"弹窗",
+            body:"",
+            confirm:null,
+            cancel:null
+        };
+        var alertCom={
+            template: ` <div id="alert" ref="alert">
+                        <div class="alert-content">
+                            <div class="alert-title">{{customTitle}}</div>
+                            <div class="alert-body">{{customBody}}</div>
+                           <div class="alert-btn">
+                                <button v-if="confirm" @touchstart="confirm">确认</button>
+                                <button v-if="cancel" @touchstart="cancel">取消</button>
+                            </div>
+                        </div>
+                    </div>`
+        };
+        var myComponent=Vue.extend(alertCom);
+        return function(opts){
+            for(var attr in opts){
+                defaults[attr]=opts[attr];
+            }
+            var vm=new myComponent({
+                el:document.createElement("div"),
+                data:{
+                    customTitle:defaults.title,
+                    customBody:defaults.body,
+                    confirm:defaults.confirm,
+                    cancel:defaults.cancel
+                }
+            });
+            document.body.appendChild(vm.$el);
+        }
+    })();
+    var vn = new Vue({
+        el: "#app",
+        data:{
+            userData:userData
+        },
+        methods:{
+            backBtn:function(){
+                alert(123)
+            },
+            homeBtn:function(){
+                alert(456)
+            }
+        }
+    })
+</script>
+</body>
+</html>
